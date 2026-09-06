@@ -22,6 +22,22 @@ function setTissueColor(material:T.MeshStandardMaterial,system:string,role:numbe
  material.emissive.set(system==='skeletal'?'#000000':role===2?'#ffac30':role===1?'#ff7130':'#34100b');
  material.emissiveIntensity=system==='skeletal'?0:role===2?.55:role===1?.2:.025;
 }
+function addHeadStudy(scene:T.Scene){
+ const ivory=new T.MeshStandardMaterial({color:'#d7d1c5',roughness:.72,metalness:0});
+ const tendon=new T.MeshStandardMaterial({color:'#e9e4da',roughness:.58,metalness:0});
+ const muscle=new T.MeshStandardMaterial({color:'#a84536',roughness:.43,metalness:0,emissive:'#35100c',emissiveIntensity:.08});
+ const deep=new T.MeshStandardMaterial({color:'#5c1715',roughness:.6,metalness:0});
+ const ellipsoid=(position:[number,number,number],scale:[number,number,number],material:T.Material,segments=28)=>{const mesh=new T.Mesh(new T.SphereGeometry(1,segments,Math.max(16,segments/2)),material);mesh.position.set(...position);mesh.scale.set(...scale);scene.add(mesh);return mesh;};
+ ellipsoid([0,1.615,-.006],[.107,.135,.091],ivory,36);
+ ellipsoid([0,1.520,.006],[.078,.068,.077],tendon,32);
+ ellipsoid([-.034,1.665,.081],[.028,.057,.008],muscle);ellipsoid([.034,1.665,.081],[.028,.057,.008],muscle);
+ ellipsoid([-.087,1.621,.028],[.019,.052,.050],muscle);ellipsoid([.087,1.621,.028],[.019,.052,.050],muscle);
+ ellipsoid([-.071,1.535,.070],[.018,.049,.014],muscle);ellipsoid([.071,1.535,.070],[.018,.049,.014],muscle);
+ ellipsoid([-.045,1.555,.083],[.026,.018,.008],muscle);ellipsoid([.045,1.555,.083],[.026,.018,.008],muscle);
+ for(const x of [-.038,.038]){const eye=new T.Mesh(new T.TorusGeometry(.017,.005,10,26),deep);eye.position.set(x,1.600,.092);scene.add(eye);}
+ const mouth=new T.Mesh(new T.TorusGeometry(.021,.004,10,30),muscle);mouth.position.set(0,1.538,.083);mouth.scale.y=.45;scene.add(mouth);
+ const brow=new T.Mesh(new T.TorusGeometry(.052,.004,8,40,Math.PI),muscle);brow.position.set(0,1.621,.091);brow.rotation.z=Math.PI;scene.add(brow);
+}
 const deform=`
 uniform float phase;
 uniform float exercise;
@@ -86,9 +102,9 @@ export default function AnatomyScene(props:Props){
   props.onReady(false);
   try{renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});}catch{setError('3D is unavailable in this browser. Enable WebGL or try another browser. Exercise instructions remain available.');return;}
   renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.75));renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;renderer.setClearColor(0x000000,0);el.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label','Interactive anatomical model. Drag to rotate; scroll or pinch to zoom.');
-  const scene=new T.Scene();const camera=new T.PerspectiveCamera(35,1,.01,20);camera.position.set(.35,1.05,2.9);cameraRef.current=camera;
+  const scene=new T.Scene();scene.background=new T.Color(0x050607);const camera=new T.PerspectiveCamera(35,1,.01,20);camera.position.set(.35,1.05,2.9);cameraRef.current=camera;
   const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,.90,0);controls.enableDamping=true;controls.minDistance=1.15;controls.maxDistance=5;controls.maxPolarAngle=Math.PI*.90;controls.minPolarAngle=.1;controls.enablePan=false;controls.update();controlRef.current=controls;
-  scene.add(new T.HemisphereLight(0xffffff,0x555b68,.95));const key=new T.DirectionalLight(0xffe8d5,3.2);key.position.set(2,3,4);scene.add(key);const rim=new T.DirectionalLight(0xc9e5ff,2.6);rim.position.set(-2,2,-2);scene.add(rim);
+  scene.add(new T.HemisphereLight(0xffeee4,0x11141a,1.25));const key=new T.DirectionalLight(0xffdfc7,3.5);key.position.set(2,3,4);scene.add(key);const rim=new T.DirectionalLight(0xb9dcff,2.8);rim.position.set(-2,2,-2);scene.add(rim);addHeadStudy(scene);
   const ring=new T.Mesh(new T.RingGeometry(.32,.325,90),new T.MeshBasicMaterial({color:0xbfc8ce,transparent:true,opacity:.28,side:T.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=-.018;scene.add(ring);
   const resize=()=>{const w=el.clientWidth,h=el.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);};const observer=new ResizeObserver(resize);observer.observe(el);resize();
   function update(){if(disposed)return;for(const u of uniforms.current){u.phase.value=state.current.progress%1;u.exercise.value=state.current.exercise.motion;const role=roleFor(u.partName,state.current.exercise);u.activation.value=role===2?1:role===1?.35:0;u.engagement.value=role===2?1:role===1?.38:0;}controls.update();renderer.render(scene,camera);frame=requestAnimationFrame(update);}update();
@@ -99,6 +115,7 @@ export default function AnatomyScene(props:Props){
    for(const p of atlas.parts as Part[]){
     const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.BufferAttribute(new Float32Array(buffer,p.positions,p.vertexCount*3),3));geometry.setAttribute('normal',new T.BufferAttribute(new Int16Array(buffer,p.normals,p.vertexCount*3),3,true));geometry.setIndex(new T.BufferAttribute(new Uint32Array(buffer,p.indices,p.indexCount),1));geometry.computeBoundingSphere();
     const center=new T.Vector3(...p.bounds[0] as [number,number,number]).add(new T.Vector3(...p.bounds[1] as [number,number,number])).multiplyScalar(.5);
+    if(center.y>1.575||(/rectus|oblique|palpebrae/.test(p.name.toLowerCase())&&center.y>1.55)){geometry.dispose();continue;}
     const side=center.x>0?1:-1;
     const arm= center.y>.73&&center.y<1.45&&Math.abs(center.x)>.16 && !/pectoralis|latissimus|serratus|trapezius|rhomboid/.test(p.name.toLowerCase());
     const leg=center.y<.85&&!/sacrum|coccyx|hip bone|pelvis|pubis/.test(p.name.toLowerCase());
