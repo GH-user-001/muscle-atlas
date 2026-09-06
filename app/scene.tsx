@@ -22,22 +22,6 @@ function setTissueColor(material:T.MeshStandardMaterial,system:string,role:numbe
  material.emissive.set(system==='skeletal'?'#000000':role===2?'#ffac30':role===1?'#ff7130':'#34100b');
  material.emissiveIntensity=system==='skeletal'?0:role===2?.55:role===1?.2:.025;
 }
-function addHeadStudy(scene:T.Scene){
- const ivory=new T.MeshStandardMaterial({color:'#d7d1c5',roughness:.72,metalness:0});
- const tendon=new T.MeshStandardMaterial({color:'#e9e4da',roughness:.58,metalness:0});
- const muscle=new T.MeshStandardMaterial({color:'#a84536',roughness:.43,metalness:0,emissive:'#35100c',emissiveIntensity:.08});
- const deep=new T.MeshStandardMaterial({color:'#5c1715',roughness:.6,metalness:0});
- const ellipsoid=(position:[number,number,number],scale:[number,number,number],material:T.Material,segments=28)=>{const mesh=new T.Mesh(new T.SphereGeometry(1,segments,Math.max(16,segments/2)),material);mesh.position.set(...position);mesh.scale.set(...scale);scene.add(mesh);return mesh;};
- ellipsoid([0,1.615,-.006],[.107,.135,.091],ivory,36);
- ellipsoid([0,1.520,.006],[.078,.068,.077],tendon,32);
- ellipsoid([-.034,1.665,.081],[.028,.057,.008],muscle);ellipsoid([.034,1.665,.081],[.028,.057,.008],muscle);
- ellipsoid([-.087,1.621,.028],[.019,.052,.050],muscle);ellipsoid([.087,1.621,.028],[.019,.052,.050],muscle);
- ellipsoid([-.071,1.535,.070],[.018,.049,.014],muscle);ellipsoid([.071,1.535,.070],[.018,.049,.014],muscle);
- ellipsoid([-.045,1.555,.083],[.026,.018,.008],muscle);ellipsoid([.045,1.555,.083],[.026,.018,.008],muscle);
- for(const x of [-.038,.038]){const eye=new T.Mesh(new T.TorusGeometry(.017,.005,10,26),deep);eye.position.set(x,1.600,.092);scene.add(eye);}
- const mouth=new T.Mesh(new T.TorusGeometry(.021,.004,10,30),muscle);mouth.position.set(0,1.538,.083);mouth.scale.y=.45;scene.add(mouth);
- const brow=new T.Mesh(new T.TorusGeometry(.052,.004,8,40,Math.PI),muscle);brow.position.set(0,1.621,.091);brow.rotation.z=Math.PI;scene.add(brow);
-}
 const deform=`
 uniform float phase;
 uniform float exercise;
@@ -104,7 +88,7 @@ export default function AnatomyScene(props:Props){
   renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.75));renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;renderer.setClearColor(0x000000,0);el.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label','Interactive anatomical model. Drag to rotate; scroll or pinch to zoom.');
   const scene=new T.Scene();scene.background=new T.Color(0x050607);const camera=new T.PerspectiveCamera(35,1,.01,20);camera.position.set(.35,1.05,2.9);cameraRef.current=camera;
   const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,.90,0);controls.enableDamping=true;controls.minDistance=1.15;controls.maxDistance=5;controls.maxPolarAngle=Math.PI*.90;controls.minPolarAngle=.1;controls.enablePan=false;controls.update();controlRef.current=controls;
-  scene.add(new T.HemisphereLight(0xffeee4,0x11141a,1.25));const key=new T.DirectionalLight(0xffdfc7,3.5);key.position.set(2,3,4);scene.add(key);const rim=new T.DirectionalLight(0xb9dcff,2.8);rim.position.set(-2,2,-2);scene.add(rim);addHeadStudy(scene);
+  scene.add(new T.HemisphereLight(0xffeee4,0x11141a,1.25));const key=new T.DirectionalLight(0xffdfc7,3.5);key.position.set(2,3,4);scene.add(key);const rim=new T.DirectionalLight(0xb9dcff,2.8);rim.position.set(-2,2,-2);scene.add(rim);
   const ring=new T.Mesh(new T.RingGeometry(.32,.325,90),new T.MeshBasicMaterial({color:0xbfc8ce,transparent:true,opacity:.28,side:T.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=-.018;scene.add(ring);
   const resize=()=>{const w=el.clientWidth,h=el.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);};const observer=new ResizeObserver(resize);observer.observe(el);resize();
   function update(){if(disposed)return;for(const u of uniforms.current){u.phase.value=state.current.progress%1;u.exercise.value=state.current.exercise.motion;const role=roleFor(u.partName,state.current.exercise);u.activation.value=role===2?1:role===1?.35:0;u.engagement.value=role===2?1:role===1?.38:0;}controls.update();renderer.render(scene,camera);frame=requestAnimationFrame(update);}update();
@@ -156,6 +140,23 @@ export default function AnatomyScene(props:Props){
     };
     const mesh=new T.Mesh(geometry,mat);mesh.frustumCulled=false;scene.add(mesh);meshes.current.push({mesh,part:p});
    }
+   const headResponse=await fetch('/models/head.json',{signal:abort.signal});
+   if(!headResponse.ok)throw Error('Head anatomy could not load.');
+   const head=await headResponse.json() as {positions:number[];indices:number[]};
+   if(disposed)return;
+   const headGeometry=new T.BufferGeometry();
+   headGeometry.setAttribute('position',new T.Float32BufferAttribute(head.positions,3));
+   headGeometry.setIndex(head.indices);headGeometry.computeVertexNormals();
+   const headMaterial=new T.MeshStandardMaterial({color:'#aaa49b',roughness:.78,metalness:0});
+   const headUniforms={phase:{value:0},exercise:{value:state.current.exercise.motion},limb:{value:0},activation:{value:0},engagement:{value:0},center:{value:new T.Vector3(0,1.61,0)},partName:'Neutral head surface'};
+   uniforms.current.push(headUniforms);
+   headMaterial.onBeforeCompile=shader=>{
+    Object.assign(shader.uniforms,headUniforms);
+    shader.vertexShader=deform+shader.vertexShader;
+    shader.vertexShader=shader.vertexShader.replace('#include <beginnormal_vertex>','vec3 objectNormal = normalize(deformPoint(position + normal * .001) - deformPoint(position));');
+    shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','vec3 transformed = deformPoint(position);');
+   };
+   const headMesh=new T.Mesh(headGeometry,headMaterial);headMesh.frustumCulled=false;scene.add(headMesh);
    setStatus('');state.current.onReady(true);
   }catch(e){if(disposed)return;setError(e instanceof Error?e.message:'The anatomy model could not load.');setStatus('');}}
   void load();

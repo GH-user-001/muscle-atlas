@@ -33,4 +33,6 @@ Muscular and skeletal meshes selected from ashemag/human-atlas; repacked without
 Inspiration and model packaging: https://github.com/ashemag/human-atlas (MIT application code).
 
 ### Supplemental schematic lat surfaces
+The neutral head surface is cropped from BodyParts3D skin mesh FJ2810 at the upper neck, retaining original coordinates. It represents the external head surface, not individual facial muscles. Normals are recomputed after cropping.
+
 The two SCHEM_LAT meshes are original procedural illustrations by Muscle Atlas, not BodyParts3D source geometry. Added because the source atlas omits latissimus dorsi. They are anatomical approximations and are released under the application MIT license.
