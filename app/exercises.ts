@@ -1,5 +1,28 @@
 export type Exercise = {id:string;name:string;group:string;equipment:string;motion:number;primary:string[];secondary:string[];match:string[];assist:string[];action:string;cues:string[];phase:[string,string];view:'front'|'back'|'side'};
 export const groups=['Biceps','Triceps','Shoulders','Back','Legs'];
+export const muscleDescriptions:Record<string,string>={
+ 'Biceps brachii':'Bends the elbow and turns the palm upward.',
+ 'Brachialis':'A deep upper-arm muscle that powerfully bends the elbow.',
+ 'Brachioradialis':'Helps bend the elbow, especially with a neutral grip.',
+ 'Triceps brachii':'Straightens the elbow and supports pressing movements.',
+ 'Anconeus':'A small muscle that assists elbow extension and stability.',
+ 'Posterior deltoid':'Draws the upper arm backward and steadies the shoulder.',
+ 'Deltoids':'Lift and position the upper arms around the shoulder joint.',
+ 'Lateral deltoids':'Lift the arms out to the sides.',
+ 'Trapezius':'Moves and stabilizes the shoulder blades and upper spine.',
+ 'Supraspinatus':'Starts the arm raise and helps stabilize the shoulder.',
+ 'Latissimus dorsi':'Draws the upper arm down and back toward the torso.',
+ 'Rhomboids':'Pull the shoulder blades toward the spine.',
+ 'Quadriceps':'Straighten the knee and help control a squat descent.',
+ 'Gluteus maximus':'Extends the hip and drives the body upward.',
+ 'Adductors':'Draw the thighs inward and help stabilize the hips.',
+ 'Erector spinae':'Hold the spine steady and assist trunk extension.',
+ 'Hamstrings':'Bend the knee and extend the hip.',
+ 'Gastrocnemius':'Raises the heel and assists knee flexion.',
+ 'Soleus':'Raises the heel and supports standing posture.',
+ 'Tibialis posterior':'Supports the foot arch and helps point the ankle.',
+};
+export function describeMuscle(name:string){return muscleDescriptions[name]??'Assists and stabilizes this movement.'}
 export const exercises:Exercise[]=[
 {id:'curl',name:'Dumbbell curl',group:'Biceps',equipment:'Dumbbells',motion:0,primary:['Biceps brachii'],secondary:['Brachialis','Brachioradialis'],match:['biceps brachii'],assist:['brachialis','brachioradialis'],action:'The biceps shorten to bend your elbows, then lengthen as you lower the weights.',cues:['Keep upper arms close to your ribs.','Curl without swinging your torso.','Lower slowly with your wrists straight.'],phase:['Curl up','Lower with control'],view:'front'},
 {id:'hammer',name:'Hammer curl',group:'Biceps',equipment:'Dumbbells',motion:1,primary:['Brachialis','Brachioradialis'],secondary:['Biceps brachii'],match:['brachialis','brachioradialis'],assist:['biceps brachii'],action:'A neutral grip emphasizes elbow flexion through the brachialis and brachioradialis, with help from the biceps.',cues:['Keep palms facing inward.','Hold your elbows by your sides.','Lift and lower through a comfortable range.'],phase:['Curl up','Lower with control'],view:'front'},

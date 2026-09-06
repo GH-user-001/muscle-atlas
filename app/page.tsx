@@ -5,7 +5,7 @@ import {Slider} from '@/components/ui/slider';
 import {Field} from '@base-ui/react/field';
 import {Tabs,TabsList,TabsTrigger,TabsContent} from '@/components/ui/tabs';
 import AnatomyScene,{View} from './scene';
-import {exercises,groups} from './exercises';
+import {describeMuscle,exercises,groups} from './exercises';
 export default function Home(){
  const [id,setId]=useState('curl'),[group,setGroup]=useState('Biceps'),[goal,setGoal]=useState('build'),[reps,setReps]=useState(12),[speed,setSpeed]=useState(1),[playing,setPlaying]=useState(false),[progress,setProgress]=useState(0),[ready,setReady]=useState(false),[view,setView]=useState<View>('front'),[reset,setReset]=useState(0);
  const [libraryOpen,setLibraryOpen]=useState(false),[infoOpen,setInfoOpen]=useState(false);
@@ -30,9 +30,10 @@ export default function Home(){
   </section>
   <aside className={'library glass '+(libraryOpen?'mobile-open':'')} aria-label="Exercise library"><div className="panel-heading"><h2>Exercises</h2><span>11 movements</span></div>
    <Tabs value={group} onValueChange={v=>{const e=exercises.find(x=>x.group===v);if(e)choose(e.id);}} className="muscle-tabs"><TabsList aria-label="Muscle group">{groups.map(g=><TabsTrigger value={g} key={g}>{g}</TabsTrigger>)}</TabsList>{groups.map(g=><TabsContent key={g} value={g}>{exercises.filter(e=>e.group===g).map(e=><button aria-pressed={e.id===id} className={'exercise '+(e.id===id?'active':'')} key={e.id} onClick={()=>{choose(e.id);setLibraryOpen(false);}}><span>{e.name}<small>{e.equipment}</small></span>{e.id===id?<Check size={15}/>:<ChevronRight size={15}/>}</button>)}</TabsContent>)}</Tabs>
-   <div className="legend"><span><i/> Primary</span><span><i/> Assisting</span></div>
+   <div className="role-key"><span><i/> Primary</span><span><i/> Assisting</span></div>
   </aside>
-  <aside className={'details glass '+(infoOpen?'mobile-open':'')} aria-label="Movement details"><span className="eyebrow">{exercise.group} / {exercise.equipment}</span><h2>{exercise.name}</h2><div className="muscle-label">Primary muscles</div><h3>{exercise.primary.join(' + ')}</h3><p className="action">{exercise.action}</p>{exercise.group==='Back'&&<p className="schematic-note">Lat surfaces are schematic.</p>}<div className="assist-label">Assisting</div><p className="assisting">{exercise.secondary.join(' · ')}</p>
+  <aside className={'details glass '+(infoOpen?'mobile-open':'')} aria-label="Movement details"><span className="eyebrow">{exercise.group} / {exercise.equipment}</span><h2>{exercise.name}</h2><p className="action">{exercise.action}</p>{exercise.group==='Back'&&<p className="schematic-note">Lat surfaces are schematic.</p>}
+   <section className="muscle-legend" aria-labelledby="muscle-legend-title"><div className="legend-heading"><h3 id="muscle-legend-title">Muscle legend</h3><span>Color on model</span></div>{exercise.primary.map(m=><div className="legend-row primary" key={'primary-'+m}><i aria-hidden="true"/><div><strong>{m}</strong><p>{describeMuscle(m)}</p></div></div>)}{exercise.secondary.map(m=><div className="legend-row assisting" key={'assisting-'+m}><i aria-hidden="true"/><div><strong>{m}</strong><p>{describeMuscle(m)}</p></div></div>)}</section>
    <details className="disclosure"><summary>Form cues<Plus size={14}/></summary><ol>{exercise.cues.map(cue=><li key={cue}>{cue}</li>)}</ol></details>
    <details className="disclosure"><summary>{goal==='build'?'Building muscle':'Leaning up'}<Plus size={14}/></summary><p>{goal==='build'?'Use a resistance you can control. As training becomes easier, gradually increase the challenge. Target reps control this demo, not a personalized program.':'Strength training supports an active routine. Fat loss depends on overall energy balance; more reps do not target fat in a selected muscle area.'}</p><a href={goal==='build'?'https://www.acefitness.org/resources/everyone/exercise-library/':'https://www.cdc.gov/healthy-weight-growth/physical-activity/index.html'} target="_blank" rel="noreferrer">{goal==='build'?'ACE exercise library':'CDC activity guide'}<ArrowUpRight size={13}/></a></details>
   </aside>
