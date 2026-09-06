@@ -6,6 +6,22 @@ import {Exercise,roleFor} from './exercises';
 export type View='front'|'back'|'side';
 type Props={exercise:Exercise;progress:number;view:View;reset:number;onReady:(ready:boolean)=>void;};
 type Part={id:string;name:string;system:string;positions:number;normals:number;indices:number;vertexCount:number;indexCount:number;bounds:number[][]};
+// Surface coordinates remain in the rest pose, so fibers travel with each muscle.
+const tissueShader=`
+uniform float phase;
+uniform float engagement;
+varying vec3 vTissue;
+float fiberHeight(vec3 p){
+ float wave=p.x*2100.+sin(p.y*95.)*.65+sin(p.z*125.)*.35;
+ float aa=max(fwidth(wave),.001);
+ return sin(wave)*(.5/(1.+aa*aa))+sin(wave*.43)*.16;
+}
+`;
+function setTissueColor(material:T.MeshStandardMaterial,system:string,role:number){
+ material.color.set(system==='skeletal'?'#a8b1b5':role===2?'#f39b38':role===1?'#dc7042':'#ad5140');
+ material.emissive.set(system==='skeletal'?'#000000':role===2?'#ffac30':role===1?'#ff7130':'#34100b');
+ material.emissiveIntensity=system==='skeletal'?0:role===2?.55:role===1?.2:.025;
+}
 const deform=`
 uniform float phase;
 uniform float exercise;
@@ -64,18 +80,18 @@ export default function AnatomyScene(props:Props){
  const [error,setError]=useState(''),[status,setStatus]=useState('Loading anatomy…');
  state.current=props;
  useEffect(()=>{const camera=cameraRef.current,controls=controlRef.current;if(!camera||!controls)return;const v=props.view;camera.position.set(v==='side'?2.8:v==='back'?-.35:.35,1.05,v==='side'?.12:v==='back'?-2.9:2.9);controls.target.set(0,.90,0);controls.update();},[props.view,props.reset]);
- useEffect(()=>{for(const {mesh,part} of meshes.current){const m=mesh.material as T.MeshStandardMaterial;const role=roleFor(part.name,props.exercise);m.color.set(part.system==='skeletal'?'#d4cfc1':role===2?'#be665f':role===1?'#739caa':'#b5a8a2');m.emissive.set(role===2?'#79332e':role===1?'#304e59':'#000000');m.emissiveIntensity=role===2?.15:.08;}},[props.exercise]);
+ useEffect(()=>{for(const {mesh,part} of meshes.current)setTissueColor(mesh.material as T.MeshStandardMaterial,part.system,roleFor(part.name,props.exercise));},[props.exercise]);
  useEffect(()=>{
   const el=host.current!;let disposed=false,frame=0;const abort=new AbortController();let renderer:T.WebGLRenderer;
   props.onReady(false);
   try{renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});}catch{setError('3D is unavailable in this browser. Enable WebGL or try another browser. Exercise instructions remain available.');return;}
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.75));renderer.outputColorSpace=T.SRGBColorSpace;renderer.setClearColor(0x000000,0);el.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label','Interactive anatomical model. Drag to rotate; scroll or pinch to zoom.');
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.75));renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;renderer.setClearColor(0x000000,0);el.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label','Interactive anatomical model. Drag to rotate; scroll or pinch to zoom.');
   const scene=new T.Scene();const camera=new T.PerspectiveCamera(35,1,.01,20);camera.position.set(.35,1.05,2.9);cameraRef.current=camera;
   const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,.90,0);controls.enableDamping=true;controls.minDistance=1.15;controls.maxDistance=5;controls.maxPolarAngle=Math.PI*.90;controls.minPolarAngle=.1;controls.enablePan=false;controls.update();controlRef.current=controls;
-  scene.add(new T.HemisphereLight(0xffffff,0x9097a0,2.0));const key=new T.DirectionalLight(0xfff7ee,2.3);key.position.set(2,3,4);scene.add(key);const rim=new T.DirectionalLight(0xd3e8ff,2);rim.position.set(-2,2,-2);scene.add(rim);
+  scene.add(new T.HemisphereLight(0xffffff,0x555b68,.95));const key=new T.DirectionalLight(0xffe8d5,3.2);key.position.set(2,3,4);scene.add(key);const rim=new T.DirectionalLight(0xc9e5ff,2.6);rim.position.set(-2,2,-2);scene.add(rim);
   const ring=new T.Mesh(new T.RingGeometry(.32,.325,90),new T.MeshBasicMaterial({color:0xbfc8ce,transparent:true,opacity:.28,side:T.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=-.018;scene.add(ring);
   const resize=()=>{const w=el.clientWidth,h=el.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);};const observer=new ResizeObserver(resize);observer.observe(el);resize();
-  function update(){if(disposed)return;for(const u of uniforms.current){u.phase.value=state.current.progress%1;u.exercise.value=state.current.exercise.motion;u.activation.value=roleFor(u.partName,state.current.exercise)===2?1:0;}controls.update();renderer.render(scene,camera);frame=requestAnimationFrame(update);}update();
+  function update(){if(disposed)return;for(const u of uniforms.current){u.phase.value=state.current.progress%1;u.exercise.value=state.current.exercise.motion;const role=roleFor(u.partName,state.current.exercise);u.activation.value=role===2?1:role===1?.35:0;u.engagement.value=role===2?1:role===1?.38:0;}controls.update();renderer.render(scene,camera);frame=requestAnimationFrame(update);}update();
   async function load(){try{
    const manifest=await fetch('/models/atlas.json',{signal:abort.signal});if(!manifest.ok)throw Error('Anatomy manifest could not load.');const atlas=await manifest.json() as {parts:Part[];bytes:number};
    const response=await fetch('/models/body.bin.gz',{signal:abort.signal});if(!response.ok||!response.body)throw Error('Anatomy geometry could not load.');
@@ -86,9 +102,41 @@ export default function AnatomyScene(props:Props){
     const side=center.x>0?1:-1;
     const arm= center.y>.73&&center.y<1.45&&Math.abs(center.x)>.16 && !/pectoralis|latissimus|serratus|trapezius|rhomboid/.test(p.name.toLowerCase());
     const leg=center.y<.85&&!/sacrum|coccyx|hip bone|pelvis|pubis/.test(p.name.toLowerCase());
-    const role=roleFor(p.name,state.current.exercise),mat=new T.MeshStandardMaterial({color:p.system==='skeletal'?'#d4cfc1':role===2?'#be665f':role===1?'#739caa':'#b5a8a2',roughness:.65,metalness:.08,emissive:role===2?'#79332e':role===1?'#304e59':'#000000',emissiveIntensity:.15});
-    const u={phase:{value:0},exercise:{value:state.current.exercise.motion},limb:{value:arm?side:leg?side*2:0},activation:{value:role===2?1:0},center:{value:center},partName:p.name};uniforms.current.push(u);
-    mat.onBeforeCompile=shader=>{Object.assign(shader.uniforms,{phase:u.phase,exercise:u.exercise,limb:u.limb,activation:u.activation,center:u.center});shader.vertexShader=deform+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <beginnormal_vertex>','vec3 objectNormal = normalize(deformPoint(position + normal * .001) - deformPoint(position));');shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','vec3 transformed = deformPoint(position);');};
+    const role=roleFor(p.name,state.current.exercise),isMuscle=p.system!=='skeletal';
+    const mat=new T.MeshStandardMaterial({roughness:isMuscle?.38:.8,metalness:0,transparent:!isMuscle,opacity:isMuscle?1:.18,depthWrite:isMuscle});
+    setTissueColor(mat,p.system,role);
+    // Orient striations along the long axis, with a fan for the chest muscles.
+    const size=new T.Vector3(...p.bounds[1] as [number,number,number]).sub(new T.Vector3(...p.bounds[0] as [number,number,number]));
+    const fiberAxis=/pectoralis/.test(p.name.toLowerCase())?2:size.x>size.y?1:0;
+    const u={phase:{value:0},exercise:{value:state.current.exercise.motion},limb:{value:arm?side:leg?side*2:0},activation:{value:role===2?1:0},engagement:{value:role===2?1:role===1?.38:0},center:{value:center},partName:p.name};uniforms.current.push(u);
+    mat.customProgramCacheKey=()=>`tissue-v3-${isMuscle}-${fiberAxis}`;
+    mat.onBeforeCompile=shader=>{
+     Object.assign(shader.uniforms,{phase:u.phase,exercise:u.exercise,limb:u.limb,activation:u.activation,engagement:u.engagement,center:u.center});
+     shader.vertexShader=deform+'\nvarying vec3 vTissue;\n'+shader.vertexShader;
+     shader.vertexShader=shader.vertexShader.replace('#include <beginnormal_vertex>','vec3 objectNormal = normalize(deformPoint(position + normal * .001) - deformPoint(position));');
+     const tissuePosition=fiberAxis===2?'vec3(length((position-center).xy)*.65,position.x,position.z)':fiberAxis===1?'position.yxz':'position';
+     shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>',`vTissue = ${tissuePosition}; vec3 transformed = deformPoint(position);`);
+     if(isMuscle){
+      shader.fragmentShader=tissueShader+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+       float fiber=fiberHeight(vTissue);
+       diffuseColor.rgb *= .86 + fiber*.27;
+      `);
+      shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
+       vec3 dpX=dFdx(vViewPosition),dpY=dFdy(vViewPosition);
+       vec3 rX=cross(dpY,normal),rY=cross(normal,dpX);
+       float det=dot(dpX,rX);
+       vec3 grad=sign(det)*(dFdx(fiber)*rX+dFdy(fiber)*rY);
+       normal=normalize(abs(det)*normal-.00012*grad);
+      `);
+      shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+       float contraction=(1.-cos(phase*6.2831853))*.5;
+       float edge=pow(1.-abs(dot(normal,normalize(vViewPosition))),2.5);
+       totalEmissiveRadiance *= .65+contraction*1.25;
+       totalEmissiveRadiance += vec3(1.,.36,.045)*engagement*(edge*.6+max(fiber,0.)*.22)*(.45+contraction);
+      `);
+     }
+    };
     const mesh=new T.Mesh(geometry,mat);mesh.frustumCulled=false;scene.add(mesh);meshes.current.push({mesh,part:p});
    }
    setStatus('');state.current.onReady(true);
