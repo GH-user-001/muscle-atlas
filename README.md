@@ -1,6 +1,6 @@
 # Muscle Atlas
 
-An interactive 3D exercise studio with real BodyParts3D muscle and skeletal geometry, illustrative exercise motion, and rep playback. Inspired by [ashemag/human-atlas](https://github.com/ashemag/human-atlas).
+An interactive 3D exercise studio with real BodyParts3D muscle and skeletal geometry, illustrative exercise motion, and rep playback. Public site available here https://muscle-atlas-motion.r4krz.chatgpt.site
 
 ## Included
 
