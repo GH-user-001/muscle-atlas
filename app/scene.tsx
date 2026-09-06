@@ -64,7 +64,7 @@ export default function AnatomyScene(props:Props){
  const [error,setError]=useState(''),[status,setStatus]=useState('Loading anatomy…');
  state.current=props;
  useEffect(()=>{const camera=cameraRef.current,controls=controlRef.current;if(!camera||!controls)return;const v=props.view;camera.position.set(v==='side'?2.8:v==='back'?-.35:.35,1.05,v==='side'?.12:v==='back'?-2.9:2.9);controls.target.set(0,.90,0);controls.update();},[props.view,props.reset]);
- useEffect(()=>{for(const {mesh,part} of meshes.current){const m=mesh.material as T.MeshStandardMaterial;const role=roleFor(part.name,props.exercise);m.color.set(part.system==='skeletal'?'#adae93':role===2?'#d6fc76':role===1?'#df9860':'#68715f');m.emissive.set(role===2?'#728b26':role===1?'#572c0c':'#000000');m.emissiveIntensity=role===2?.15:.08;}},[props.exercise]);
+ useEffect(()=>{for(const {mesh,part} of meshes.current){const m=mesh.material as T.MeshStandardMaterial;const role=roleFor(part.name,props.exercise);m.color.set(part.system==='skeletal'?'#d4cfc1':role===2?'#be665f':role===1?'#739caa':'#b5a8a2');m.emissive.set(role===2?'#79332e':role===1?'#304e59':'#000000');m.emissiveIntensity=role===2?.15:.08;}},[props.exercise]);
  useEffect(()=>{
   const el=host.current!;let disposed=false,frame=0;const abort=new AbortController();let renderer:T.WebGLRenderer;
   props.onReady(false);
@@ -72,9 +72,8 @@ export default function AnatomyScene(props:Props){
   renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.75));renderer.outputColorSpace=T.SRGBColorSpace;renderer.setClearColor(0x000000,0);el.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label','Interactive anatomical model. Drag to rotate; scroll or pinch to zoom.');
   const scene=new T.Scene();const camera=new T.PerspectiveCamera(35,1,.01,20);camera.position.set(.35,1.05,2.9);cameraRef.current=camera;
   const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,.90,0);controls.enableDamping=true;controls.minDistance=1.15;controls.maxDistance=5;controls.maxPolarAngle=Math.PI*.90;controls.minPolarAngle=.1;controls.enablePan=false;controls.update();controlRef.current=controls;
-  scene.add(new T.HemisphereLight(0xf6ffe6,0x34402c,2.3));const key=new T.DirectionalLight(0xf5ffe1,3);key.position.set(2,3,4);scene.add(key);const rim=new T.DirectionalLight(0xd3e8ff,2);rim.position.set(-2,2,-2);scene.add(rim);
-  const ring=new T.Mesh(new T.RingGeometry(.32,.325,90),new T.MeshBasicMaterial({color:0x68794f,transparent:true,opacity:.45,side:T.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=-.018;scene.add(ring);
-  const floor=new T.GridHelper(3,30,0x455039,0x2c3427);floor.position.y=-.021;(floor.material as T.Material).transparent=true;(floor.material as T.Material).opacity=.3;scene.add(floor);
+  scene.add(new T.HemisphereLight(0xffffff,0x9097a0,2.0));const key=new T.DirectionalLight(0xfff7ee,2.3);key.position.set(2,3,4);scene.add(key);const rim=new T.DirectionalLight(0xd3e8ff,2);rim.position.set(-2,2,-2);scene.add(rim);
+  const ring=new T.Mesh(new T.RingGeometry(.32,.325,90),new T.MeshBasicMaterial({color:0xbfc8ce,transparent:true,opacity:.28,side:T.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=-.018;scene.add(ring);
   const resize=()=>{const w=el.clientWidth,h=el.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);};const observer=new ResizeObserver(resize);observer.observe(el);resize();
   function update(){if(disposed)return;for(const u of uniforms.current){u.phase.value=state.current.progress%1;u.exercise.value=state.current.exercise.motion;u.activation.value=roleFor(u.partName,state.current.exercise)===2?1:0;}controls.update();renderer.render(scene,camera);frame=requestAnimationFrame(update);}update();
   async function load(){try{
@@ -87,7 +86,7 @@ export default function AnatomyScene(props:Props){
     const side=center.x>0?1:-1;
     const arm= center.y>.73&&center.y<1.45&&Math.abs(center.x)>.16 && !/pectoralis|latissimus|serratus|trapezius|rhomboid/.test(p.name.toLowerCase());
     const leg=center.y<.85&&!/sacrum|coccyx|hip bone|pelvis|pubis/.test(p.name.toLowerCase());
-    const role=roleFor(p.name,state.current.exercise),mat=new T.MeshStandardMaterial({color:p.system==='skeletal'?'#adae93':role===2?'#d6fc76':role===1?'#df9860':'#68715f',roughness:.65,metalness:.08,emissive:role===2?'#728b26':role===1?'#572c0c':'#000000',emissiveIntensity:.15});
+    const role=roleFor(p.name,state.current.exercise),mat=new T.MeshStandardMaterial({color:p.system==='skeletal'?'#d4cfc1':role===2?'#be665f':role===1?'#739caa':'#b5a8a2',roughness:.65,metalness:.08,emissive:role===2?'#79332e':role===1?'#304e59':'#000000',emissiveIntensity:.15});
     const u={phase:{value:0},exercise:{value:state.current.exercise.motion},limb:{value:arm?side:leg?side*2:0},activation:{value:role===2?1:0},center:{value:center},partName:p.name};uniforms.current.push(u);
     mat.onBeforeCompile=shader=>{Object.assign(shader.uniforms,{phase:u.phase,exercise:u.exercise,limb:u.limb,activation:u.activation,center:u.center});shader.vertexShader=deform+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <beginnormal_vertex>','vec3 objectNormal = normalize(deformPoint(position + normal * .001) - deformPoint(position));');shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','vec3 transformed = deformPoint(position);');};
     const mesh=new T.Mesh(geometry,mat);mesh.frustumCulled=false;scene.add(mesh);meshes.current.push({mesh,part:p});
